@@ -20,12 +20,6 @@ con <- DBI::dbConnect(odbc::odbc(),
                          Encrypt=yes;
                          TrustServerCertificate=no;
                          Connection Timeout=30;"))
-# con <- dbConnect(odbc::odbc(),
-#                  driver = "ODBC Driver 13 for SQL Server",
-#                  server = "tcp:hynso.database.windows.net,1433",
-#                  database = "mydb",
-#                  uid = "hynso",
-#                  pwd = "sigeMund67")
 # dbDisconnect(con)
 
 
@@ -249,17 +243,17 @@ dbGetQuery(con,
            AND (dest = 'MEM' OR dest = 'AGS') 
            AND NOT dep_delay IS NULL;")
 
-# # Discovery
-# flights_db %>%
-#   select(origin, dest) %>%
-#   group_by(origin, dest) %>%
-#   summarize(n = n()) %>%
-#   arrange(n)
+# Discovery
+flights_db %>%
+  select(origin, dest) %>%
+  group_by(origin, dest) %>%
+  summarize(n = n()) %>%
+  arrange(n)
 dbGetQuery(con,
-           "SELECT TOP 10 origin, dest, COUNT(origin) -- or COUNT(dest)
+           "SELECT TOP 10 origin, dest, COUNT(*)
            FROM flights
            GROUP BY origin, dest
-           ORDER BY COUNT(origin) ASC;                -- or COUNT(dest)")   
+           ORDER BY COUNT(*) ASC;")   
 
 # _ ORDER BY ----
 dbGetQuery(con,
