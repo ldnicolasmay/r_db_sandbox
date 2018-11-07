@@ -261,8 +261,29 @@ dbGetQuery(con,
            GROUP BY origin, dest
            ORDER BY COUNT(origin) ASC;                -- or COUNT(dest)")   
 
+# _ ORDER BY ----
+dbGetQuery(con,
+           "SELECT TOP 10 year, month, day, dep_delay, arr_delay, origin, dest
+           FROM flights
+           WHERE NOT dep_delay < 1000 AND NOT arr_delay < 1000
+           ORDER BY dep_delay ASC;")
+flights_db %>% 
+  select(year, month, day, dep_delay, arr_delay, origin, dest) %>% 
+  filter(!(dep_delay < 1000L) && !(arr_delay < 1000L)) %>% 
+  arrange(dep_delay) %>% 
+  head(10)
 
-# 
+dbGetQuery(con,
+           "SELECT TOP 10 year, month, day, dep_delay, arr_delay, origin, dest
+           FROM flights
+           WHERE NOT dep_delay < 1000 AND NOT arr_delay < 1000
+           ORDER BY arr_delay DESC;")
+flights_db %>% 
+  select(year, month, day, dep_delay, arr_delay, origin, dest) %>% 
+  filter(!(dep_delay < 1000L) && !(arr_delay < 1000L)) %>% 
+  arrange(desc(arr_delay)) %>% 
+  head(10)
+
 
 # RStudio tutorials
 # Safe queries avoiding SQL injection - Parameterized queries 
