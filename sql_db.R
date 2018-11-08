@@ -7,37 +7,51 @@ library(dplyr)
 library(tictoc)
 source('config.R')
 
-# Connect to Azure SQL server
+# Connect to Azure SQL server ----
 sort(unique(odbc::odbcListDrivers()[[1]]))
 con <- DBI::dbConnect(odbc::odbc(), 
-                      .connection_string = paste0(
-                        "Driver={ODBC Driver 13 for SQL Server};
-                         Driver={ODBC Driver 13 for SQL Server};
-                         Server=tcp:hynso.database.windows.net,1433;
-                         Database=mydb;
-                         Uid=", uid, "@", uid, ";
-                         Pwd=", pwd, ";
-                         Encrypt=yes;
-                         TrustServerCertificate=no;
-                         Connection Timeout=30;"))
+                      .connection_string = con_string)
 # dbDisconnect(con)
 
+# Get `flights` data ----
+# flights <-
+#   flights::nycflights14(path = "~/Box Sync/Learning/R/CSCAR/data.table/",
+#                         dir = "flights",
+#                         verbose = TRUE)
+# print(object.size(flights), units = 'Mb')
 
-# Set up dplyr interface to 'flights' in the SQL Server
-flights_db <- tbl(con, 'flights')
+
+# # Get `nycflights13` data tables ----
+# # install.packages('nycflights13')
+# airlines13 <- nycflights13::airlines
+# airports13 <- nycflights13::airports
+# flights13  <- nycflights13::flights
+# planes13   <- nycflights13::planes
+# weather13  <- nycflights13::weather
 
 
-DBI::dbGetInfo(con)
-
-# Get `flights` data
-flights <-
-  flights::nycflights14(path = "~/Box Sync/Learning/R/CSCAR/data.table/",
-                        dir = "flights",
-                        verbose = TRUE)
-print(object.size(flights), units = 'Mb')
-
-# Write `flights` table to 'mydb' on SQL Server
+# Write `flights` table to 'mydb' on SQL Server ----
 # DBI::dbWriteTable(conn = con, name = 'flights', value = flights)
+# Write `nycflights13` data tables
+# DBI::dbWriteTable(con, 'airlines13', airlines13)
+# DBI::dbWriteTable(con, 'airports13', airports13)
+# DBI::dbWriteTable(con, 'flights13', flights13)
+# DBI::dbWriteTable(con, 'planes13', planes13)
+# DBI::dbWriteTable(con, 'weather13', weather13)
+
+
+# Set up dplyr interfaces ----
+# _ Full flights data tables
+flights_db <- tbl(con, 'flights')
+# _ nycflights13 data tables
+airlines13_db <- tbl(con, 'airlines13')
+airports13_db <- tbl(con, 'airports13')
+flights13_db  <- tbl(con, 'flights13')
+planes13_db   <- tbl(con, 'planes13')
+weather13_db  <- tbl(con, 'weather13')
+
+# 
+DBI::dbGetInfo(con)
 
 # List the tables in 'mydb' connection
 DBI::dbListTables(con)
@@ -279,8 +293,48 @@ flights_db %>%
   head(10)
 
 
+# RStudio webinar
+# Best practices for working with databases
+
+# 1. Ideally, analyze in-place using SQL engine
+# "total sales by month" => "total # flights cancelled by month"
+dbGetQuery(con,
+           "SELECT month, SUM(cancelled) AS sum_canc
+           FROM flights
+           GROUP BY month
+           ORDER BY sum_canc DESC;") %>% tibble::as_tibble()
+flights_db %>% 
+  select(month, cancelled) %>% 
+  group_by(month) %>% 
+  summarize(sum_canc = sum(cancelled, na.rm = TRUE)) %>% 
+  arrange(desc(sum_canc)) %>% collect() %>% print(n = 12)
+
+# "# of sales over $1K by month" => "# of dep delays over 1000 min by month"
+dbGetQuery(con,
+           "SELECT month, COUNT(dep_delay) AS dep_delay_n
+           FROM flights
+           WHERE dep_delay > 500
+           GROUP BY month
+           ORDER BY month ASC;")
+flights_db %>% 
+  select(month, dep_delay) %>% 
+  filter(dep_delay > 500L) %>% 
+  group_by(month) %>% 
+  summarize(dep_delay_n = n()) %>% 
+  arrange(month) %>% collect() %>% print(n = 12)
+
+# 2. Use 'Connections' pane in RStudio ========>
+#    - Preview structure of SQL data (using dropdown arrows)
+#    - Preview first 1000 records of a table (little table icon)
+#    - Refresh connections (refresh icon, circle arrow top right)
+#    - Manage connections
+#    - Open SQL document use SQL icon
+#    - Disconnect from a (SQL) connection
+
+
 # RStudio tutorials
 # Safe queries avoiding SQL injection - Parameterized queries 
+
 
 
 
