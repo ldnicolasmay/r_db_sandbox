@@ -5,6 +5,7 @@ library(DBI)
 library(odbc)
 library(dplyr)
 library(tictoc)
+library(ggplot2)
 source('config.R')
 
 # Connect to Azure SQL server ----
@@ -43,7 +44,9 @@ con <- DBI::dbConnect(odbc::odbc(),
 # Set up dplyr interfaces ----
 # _ Full flights data tables
 flights_db <- tbl(con, 'flights')
-# _ nycflights13 data tables
+# _ nycflights13 data tables 
+# airlines13_db <- tbl(con, dbplyr::in_schema('dbo', 'airlines13'))
+# glimpse(airlines13_db)
 airlines13_db <- tbl(con, 'airlines13')
 airports13_db <- tbl(con, 'airports13')
 flights13_db  <- tbl(con, 'flights13')
@@ -54,6 +57,7 @@ weather13_db  <- tbl(con, 'weather13')
 DBI::dbGetInfo(con)
 
 # List the tables in 'mydb' connection
+DBI::dbListObjects(con)
 DBI::dbListTables(con)
 DBI::dbListTables(con)[grepl(pattern = "flights", DBI::dbListTables(con))]
 DBI::dbExistsTable(con, "flights")
@@ -330,6 +334,81 @@ flights_db %>%
 #    - Manage connections
 #    - Open SQL document use SQL icon
 #    - Disconnect from a (SQL) connection
+
+#
+dbGetQuery(con,
+           "SELECT origin, dest, COUNT(*) AS flight_n
+           FROM flights
+           GROUP BY origin, dest;")
+
+# Continuing with dplyr
+flights_db %>% 
+  group_by(year, month) %>% 
+  tally() %>% 
+  arrange(year, month) %>% collect() %>% print(n = nrow(.))
+flights13_db %>% 
+  group_by(year, month) %>% 
+  tally() %>% 
+  arrange(year, month) %>% collect() %>% print(n = nrow(.))
+
+flights_db %>% 
+  group_by(year, month) %>% 
+  summarize(n_flights = n(),
+            avg_dep_delay = mean(dep_delay, na.rm = TRUE),
+            avg_arr_delay = mean(arr_delay, na.rm = TRUE)) %>% 
+  arrange(year, month) %>% collect() %>% print(n = nrow(.))
+
+# dplyr joins
+glimpse(flights13_db)
+glimpse(airports13_db)
+# dplyr joins create a pointer to a SQL query 
+flights13_airports13_db <- flights13_db %>% 
+  inner_join(airports13_db, by = c('dest' = 'faa')) # match dest to faa code!
+glimpse(flights13_airports13_db)
+head(flights13_airports13_db)
+# _ Top 10 destination airports by name
+flights13_airports13_db %>% 
+  group_by(name) %>% 
+  tally() %>% 
+  arrange(desc(n)) %>% 
+  head(10) # %>% 
+  # show_query()
+
+# Visualizations
+# _ dplyr::collect() => ggplot
+t <- flights13_airports13_db %>% 
+  group_by(name) %>% 
+  tally() %>% 
+  arrange(desc(n)) %>% 
+  head(12) %>% 
+  collect()
+ggplot(t) +
+  geom_col(aes(x = name, y = n)) +
+  coord_flip()
+# _ skip collect()
+flights13_airports13_db %>% 
+  group_by(lon, lat) %>% 
+  tally() %>% 
+  select(n, lon, lat) %>% 
+  collect() %>% 
+  ggplot() +
+  geom_point(aes(x = lon, y = lat, size = n, color = n), alpha = 0.3)
+
+# dbplot
+library(dbplot)
+
+flights_db %>% 
+  dbplot_line(month)
+flights_db %>% 
+  dbplot_line(month, mean(dep_delay, na.rm = TRUE)) +
+  scale_x_continuous(breaks = seq(1, 12, by = 1))
+
+flights_db %>% 
+  # mutate(hour = if_else(hour == 24L, 0L, hour)) %>% 
+  dbplot_histogram(hour)
+
+
+
 
 
 # RStudio tutorials
