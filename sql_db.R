@@ -6,12 +6,14 @@ library(odbc)
 library(dplyr)
 library(tictoc)
 library(ggplot2)
-source('config.R')
+library(dbplot)
+library(tidypredict)
+source('config_mydb.R')
 
 # Connect to Azure SQL server ----
 sort(unique(odbc::odbcListDrivers()[[1]]))
 con <- DBI::dbConnect(odbc::odbc(), 
-                      .connection_string = con_string)
+                      .connection_string = con_string_mydb)
 # dbDisconnect(con)
 
 # Get `flights` data ----
@@ -61,6 +63,13 @@ DBI::dbListObjects(con)
 DBI::dbListTables(con)
 DBI::dbListTables(con)[grepl(pattern = "flights", DBI::dbListTables(con))]
 DBI::dbExistsTable(con, "flights")
+
+res <- dbSendQuery(con,
+                   "SELECT * FROM flights WHERE hour = 2;")
+DBI::dbColumnInfo(res)
+blah <- DBI::dbFetch(res)
+DBI::dbClearResult(res)
+str(blah)
 
 # List the fields in the 'flights' table
 DBI::dbListFields(con, "flights")
@@ -166,7 +175,7 @@ flights_db %>%
 
 # _ _ _ >  ----
 tic(); dbGetQuery(con,
-           "SELECT year, month, day, dep_delay FROM flights
+                  "SELECT year, month, day, dep_delay FROM flights
             WHERE dep_delay > 1000;"); toc()
 tic(); flights_db %>% 
   select(year, month, day, dep_delay) %>% 
@@ -174,7 +183,7 @@ tic(); flights_db %>%
 
 # _ _ _ BETWEEN ----
 tic(); dbGetQuery(con,
-           "SELECT year, month, day, arr_delay, tailnum FROM flights
+                  "SELECT year, month, day, arr_delay, tailnum FROM flights
             WHERE arr_delay BETWEEN 950 AND 1050;"); toc()
 tic(); flights_db %>% 
   select(year, month, day, arr_delay, tailnum) %>% 
@@ -239,7 +248,7 @@ flights_db %>%
 
 # _ _ NOT ----
 blah <- dbGetQuery(con,
-           "SELECT year, month, day, dep_delay, arr_delay, origin, dest 
+                   "SELECT year, month, day, dep_delay, arr_delay, origin, dest 
             FROM flights
             WHERE NOT month = 1;") 
 blah <- flights_db %>% 
@@ -372,7 +381,7 @@ flights13_airports13_db %>%
   tally() %>% 
   arrange(desc(n)) %>% 
   head(10) # %>% 
-  # show_query()
+# show_query()
 
 # Visualizations
 # _ dplyr::collect() => ggplot
@@ -395,28 +404,301 @@ flights13_airports13_db %>%
   geom_point(aes(x = lon, y = lat, size = n, color = n), alpha = 0.3)
 
 # dbplot
-library(dbplot)
+# library(dbplot)
 
 flights_db %>% 
-  dbplot_line(month)
+  dbplot_line(month) +
+  scale_x_continuous(breaks = seq(1, 12, by = 1))
 flights_db %>% 
   dbplot_line(month, mean(dep_delay, na.rm = TRUE)) +
   scale_x_continuous(breaks = seq(1, 12, by = 1))
 
+# flights_db %>% 
+#   # mutate(hour = if_else(hour == 24L, 0L, hour)) %>% 
+#   dbplot_histogram(hour)
+
 flights_db %>% 
-  # mutate(hour = if_else(hour == 24L, 0L, hour)) %>% 
-  dbplot_histogram(hour)
+  dbplot_histogram(dep_delay)
+flights_db %>% 
+  filter(dep_delay < 100, dep_delay > (-100)) %>% 
+  dbplot_histogram(dep_delay)
+
+glimpse(flights13_airports13_db)
+flights13_airports13_db %>% 
+  filter(dep_delay < 500, arr_delay < 500) %>% 
+  dbplot_raster(dep_delay, arr_delay, resolution = 100)
+# dbplot compute functions... return data frames
+flights13_airports13_db %>% 
+  filter(dep_delay < 500, arr_delay < 500) %>% 
+  db_compute_raster(dep_delay, arr_delay, resolution = 100)
+
+# Sampling 
+set.seed(100)
+# flights_db %>%    # doesn't work ... yet?
+#   sample_n(600)
+# ... above doesn't work, so we need another approach
+rows <- flights_db %>% 
+  tally() %>% 
+  pull()
+
+sampling <- sample(1:rows, 2000)
+
+glimpse(flights_db)
+flights_sample <- flights_db %>% 
+  filter(cancelled == 0) %>% 
+  mutate(row = row_number(order = c(year, month, day, hour, min))) %>%
+  filter(row %in% sampling) %>% 
+  collect()
+
+# dbplot for sample
+flights_sample %>% 
+  filter(dep_delay > (-100), dep_delay < 100) %>% 
+  dbplot_histogram(dep_delay)
+
+# make model with sample data
+flights_sample %>% 
+  ggplot(aes(dep_time, arr_delay)) + 
+  geom_point() +
+  scale_x_continuous(breaks = seq(0, 2400, 100)) +
+  geom_smooth(method = 'lm', col = 'red')
+flights_sample %>% 
+  ggplot(aes(arr_time, arr_delay)) + 
+  geom_point() +
+  scale_x_continuous(breaks = seq(0, 2400, 100)) +
+  geom_smooth(method = 'lm', col = 'red')
+
+model <- flights_sample %>% 
+  filter(arr_delay > (-100), arr_delay < 100) %>% 
+  mutate(dayofmonth = paste0('d', day)) %>% 
+  lm(arr_delay ~ dep_time + arr_time, data = .)
+summary(model)
 
 
+## tidypredict
+# library(tidypredict)
+
+tidypredict_sql(model, con) # creates a SQL statement for the model
+
+flights_db %>% 
+  filter(arr_delay > (-100), arr_delay < 100) %>% 
+  tidypredict_to_column(model) %>% 
+  select(dep_time, arr_time, fit, arr_delay)
+
+
+flights_db %>% 
+  filter(arr_delay > (-100), arr_delay < 100) %>% 
+  tidypredict_to_column(model) %>%
+  mutate(diff = fit - arr_delay) %>% 
+  dbplot_histogram(diff)
 
 
 
 # RStudio tutorials
+
 # Safe queries avoiding SQL injection - Parameterized queries 
+## SQL injection attack
+
+### Normal query
+dbGetQuery(con, 'SELECT TOP 5 * FROM airports13;')
+
+### Normal query with paste0()
+airport_code <- "GPT"
+dbGetQuery(con, 
+           paste0("SELECT * FROM airports13 WHERE faa = '", 
+                  airport_code ,
+                  "';"))
+
+# A careful attacker can create inputs that return more rows than you want
+airport_code <- "GPT' OR faa = 'MSY"
+dbGetQuery(con, 
+           paste0("SELECT * FROM airports13 WHERE faa = '", 
+                  airport_code ,
+                  "'"))
+# ... or take destructive actions on your database
+# airport_code <- "GPT'; DROP TABLE 'airports13"
+# dbGetQuery(con, 
+#            paste0("SELECT * FROM airports13 WHERE faa = '", 
+#                   airport_code ,
+#                   "';"))
+# DBI::dbWriteTable(con, 'airports13', airports13)
+# airports13_db <- tbl(con, 'airports13')
+
+# To avoid SQL injection, 
+# use a parameterised query with dbSendQuery() and dbBind()
+# 1. You create a query containing a ? placeholder and send it to the database 
+#    with dbSendQuery():
+airport_res <- dbSendQuery(con, "SELECT * FROM airports13 WHERE faa = ?")
+
+# 2. Use dbBind() to execute the query with specific values, then dbFetch() 
+#    to get the results:
+dbBind(airport_res, list("GPT"))
+dbFetch(airport_res)
+
+# 3. Once you’re done using the parameterised query, clean it up by calling 
+#    dbClearResult():
+dbClearResult(airport_res)
 
 
 
+# R4DS - Relational Data chapter
+
+# 13.2 nycflights
+dbGetQuery(con,
+           "SELECT * FROM airlines13;")
+dbGetQuery(con,
+           "SELECT TOP 10 * from airports13;")
+dbGetQuery(con,
+           "SELECT TOP 10 * from planes13;")
+dbGetQuery(con,
+           "SELECT TOP 10 * from weather13;")
+
+# 13.3 Keys
+# A primary key uniquely identifies an observation in its own table
+# A foreign key uniquely identifies an observation in another table
+
+# airlines13 primary key: `carrier`
+airlines13_db %>% glimpse()
+airlines13_db %>% 
+  count(carrier) %>% 
+  filter(n > 1)
+
+# airports13 primary key: `faa`
+airports13_db %>% glimpse()
+airports13_db %>% 
+  count(faa) %>% 
+  filter(n > 1)
+
+# flights13 primary key: year, month, day, hour, minute, carrier, fight
+# or add surrogate key `row_number` to `year`, `month`, `day`, `flight`
+flights13_db %>% glimpse()
+flights13_db %>% 
+  count(year, month, day, hour, minute, carrier, flight) %>% 
+  filter(n > 1)
+flights13_db <- flights13_db %>% 
+  mutate(row_num = 
+           row_number(order = 
+                        c(year, month, day, hour, minute, carrier, flight)))
+flights13_db %>% 
+  count(flight, row_num) %>% 
+  filter(n > 1)
+flights13_db %>% glimpse()
+
+# 13.4 Mutating joins
+flights2 <- flights13_db %>% 
+  select(year:day, hour, origin, dest, tailnum, carrier)
+flights2
+
+# left_join
+flights2 %>% 
+  select(-origin, -dest) %>% 
+  left_join(airlines13_db, by = 'carrier')
+
+# 13.4.2 Inner joins
+
+# 13.4.3 Outer joins (left, right, full)
+
+# 13.4.4 Duplicate keys)
+
+x <- tibble(key   = c(1L, 2L, 2L, 1L),
+            val_x = c('x1', 'x2', 'x3', 'x4'))
+y <- tibble(key   = c(1L, 2L),
+            val_y = c('y1', 'y2'))
+left_join(x, y, by = 'key')
+# x has duplicate keys... this is useful
+
+x <- tibble(key   = c(1L, 2L, 2L, 3L),
+            val_x = c('x1', 'x2', 'x3', 'x4'))
+y <- tibble(key   = c(1L, 2L, 2L, 3L),
+            val_y = c('y1', 'y2', 'y3', 'y4'))
+left_join(x, y, by = 'key')
+# - both x and y have duplicate keys... this is usually an error
+# - when there are duplicate keys, you can all possible combinations of 
+#   those duplicate keys (i.e., cartesian product of duplicate keys)
+# - if the number of rows of the result of a left outer join is greater
+#   than the number of rows of x, then there are duplicate keys in x and y
+
+# 13.4.5 Defining the key columns
+
+# Natural join on all matching field names (by = NULL)
+glimpse(flights2)
+glimpse(weather13_db)
+flights2 %>% left_join(weather13_db)
+
+# Natural join on specific field names (by = 'x')
+glimpse(flights2)
+glimpse(planes13_db)
+flights2 %>% left_join(planes13_db, by = 'tailnum') # ... by = c('tailnum')
+
+# Natural join on specific field names that are different (by = c('a' = 'b'))
+glimpse(flights2)
+glimpse(airports13_db)
+flights2 %>% left_join(airports13_db, by = c('origin' = 'faa'))
+flights2 %>% left_join(airports13_db, by = c('dest' = 'faa'))
+
+# 13.4.6 Exercises
+
+# 1
+
+# # sample
+# airports13_db %>%
+#   semi_join(flights13_db, c("faa" = "dest")) %>%
+#   ggplot(aes(lon, lat)) +
+#   borders("state") +
+#   geom_point() +
+#   coord_quickmap()
+
+flights13_dep_del_sum <- flights13_db %>% 
+  group_by(dest) %>% 
+  summarize(m_dep_delay = mean(dep_delay, na.rm = TRUE))
+airports13_db_dep_del <- airports13_db %>% 
+  left_join(flights13_dep_del_sum, by = c('faa' = 'dest'))
+airports13_db_dep_del
+
+airports13_db_dep_del %>%
+  semi_join(flights13_db, c("faa" = "dest")) %>%
+  ggplot(aes(x = lon, y = lat, col = m_dep_delay, size = m_dep_delay)) +
+  borders("state") +
+  geom_point(alpha = 0.5) +
+  coord_quickmap()
+
+# 3
+
+glimpse(planes13_db)
+glimpse(flights13_db)
+
+flights13_db %>% 
+  group_by(tailnum) %>% 
+  summarize(mn_dep_del = mean(dep_delay, na.rm = TRUE),
+            n = n()) %>% 
+  filter(mn_dep_del <= 100) %>% 
+  right_join(planes13_db, by = 'tailnum') %>%
+  filter(year >= 1980) %>% 
+  ggplot(aes(x = year, y = mn_dep_del, color = n, size = n)) +
+  geom_point(alpha = 0.25) +
+  geom_smooth(method = 'loess')
+
+blah <- DBI::dbGetQuery(con,
+                        "SELECT *
+                FROM INFORMATION_SCHEMA.COLUMNS;")
+DBI::dbGetQuery(con,
+                "SELECT TOP 5 * FROM airlines13;")
+DBI::dbGetQuery(con,
+                "")
 
 
 # Disconnect the database connection
 dbDisconnect(con)
+
+
+
+
+
+
+
+
+
+
+
+
+
+

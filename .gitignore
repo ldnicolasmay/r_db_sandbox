@@ -2,8 +2,5 @@
 .Rhistory
 .RData
 .Ruserdata
-*.csv
-*.xls
-*.xlsx
-*.txt
-config.R
+config*
+*.pem

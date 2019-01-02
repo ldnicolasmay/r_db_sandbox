@@ -1,0 +1,207 @@
+---
+title: "Chapter 1"
+author: "Nicolas May"
+date: "January 1, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(error = TRUE)
+```
+
+# Connect to AWS PostgreSQL Server
+
+The "PostgreSQL" DNS below is defined in `/usr/local/etc/odbc.ini`, which points to `/usr/local/etc/odbcinst.ini` in macOS; in Debian/Ubuntu, they're in `~/.odbc.ini` pointing to `/etc/odbcinst.ini`.
+
+The `dvdrental` database (available as a .tar file at [https://github.com/PacktPublishing/PostgreSQL-11-in-7-days/tree/master/resources](https://github.com/PacktPublishing/PostgreSQL-11-in-7-days/tree/master/resources)) has already been uploaded to the AWS EC2 PostgreSQL server via pgAdmin4's restore functionality. A local version of PostgreSQL must also be installed to use pgAdmin4's restore functionality.
+
+Load useful libraries.
+```{r}
+library(DBI)
+library(odbc)
+library(RPostgreSQL)
+```
+
+Connecto to the _dvdrental_ database.
+```{r}
+# "PostgreSQL" DNS set in:
+#   /usr/local/etc/odbc.ini
+#   /usr/local/etc/odbcinst.ini
+# ... OR ...:
+#   ~/.odbc.ini
+#   /etc/odbcinst.ini
+con_dvdrental <- DBI::dbConnect(odbc::odbc(), "PostgreSQL AWS dvdrental")
+# RPostgreSQL::postgresqlDescribeConnection(con_dvdrental)
+```
+
+# Chapter Sections
+
+## Setup a Practice Database Using Referenced .tar File
+
+See what's in the `customer` table.
+```{sql, connection=con_dvdrental}
+SELECT * FROM customer;
+```
+
+Disconnect from the _dvdrental_ database.
+```{r}
+dbDisconnect(con_dvdrental)
+```
+
+
+## Create Database, Table, Insert, and Query Data – Part 1
+
+### Creating a database
+
+Here, we'll be using the default `postgres` database (which has PostgreSQL admin tools) to create a new database called `petshop`.
+
+Connect to the _postgres_ database.
+```{r}
+con_postgres <- DBI::dbConnect(odbc::odbc(), "PostgreSQL AWS postgres")
+```
+
+The template for creating a new database is `CREATE DATABASE database_name;`.
+
+```{sql, connection=con_postgres}
+-- CREATE DATABASE petshop; -- This database is already created, so it's commented out
+```
+
+Disconnect from the `postgres` database.
+```{r}
+dbDisconnect(con_postgres)
+```
+
+
+## Create Database, Table, Insert, and Query Data – Part 2
+
+Connect to the _petshop_ database.
+```{r}
+con_petshop <- DBI::dbConnect(odbc::odbc(), "PostgreSQL AWS petshop")
+```
+
+### Creating a table
+
+The template for creating a table is `CREATE TABLE table_name(column_name datatype CONSTRAINT);`.
+
+```{sql, connection=con_petshop}
+DROP TABLE IF EXISTS dogs; -- if this script is run more than once
+CREATE TABLE dogs(
+  dog_id serial       PRIMARY KEY, -- serial datatype is auto-incrementing integer
+  name   varchar(255) NOT NULL,
+  age    integer      NOT NULL,
+  weight integer      NOT NULL
+);
+```
+
+### Inserting data into a table
+
+The template for inserting a row of data into a table is `INSERT INTO table_name(column_1, column_2) VALUE ('value_one', 'value_two');`.
+
+```{sql, connection=con_petshop}
+INSERT INTO dogs(
+  name, age, weight
+) VALUES (
+  'Rover', 3, 35
+);
+```
+
+### Querying data from a table
+
+Run a simple `SELECT * FROM ...` query.
+
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+Disconnect from the _petshop_ database.
+```{r}
+dbDisconnect(con_petshop)
+```
+
+
+## PostgreSQL Relationships Using What’s Called a Primary Key and Foreign Key
+
+The template for connectiong primary and foreign keys is as follows:
+```
+CREATE TABLE dogs(
+  dog_id   serial       PRIMARY KEY,
+  owner_id integer,     
+    FOREIGN KEY(owner_id) REFERENCES owners(owner_id),
+  name     varchar(255) NOT NULL,
+  age      integer      NOT NULL,
+  weight   integer      NOT NULL
+);
+```
+
+## Assignment
+
+Connect to _postgres_ database in order to create a _toy_store_ database.
+```{r}
+con_postgres <- DBI::dbConnect(odbc::odbc(), "PostgreSQL AWS postgres")
+```
+
+Create the _toy_store_ database.
+```{sql, connection=con_postgres}
+-- CREATE DATABASE toy_store; -- This database is already created, so it's commented out
+```
+
+Disconnect from the _postgres_ database.
+```{r}
+dbDisconnect(con_postgres)
+```
+
+Now, connect to the _toy_store_ database.
+```{r}
+con_toy_store <- DBI::dbConnect(odbc::odbc(), "PostgreSQL AWS toy_store")
+```
+
+Create the assigned table.
+```{sql, connection=con_toy_store}
+DROP TABLE IF EXISTS customer;
+CREATE TABLE customer(
+  customer_id  serial        PRIMARY KEY,
+  first_name   varchar(255)  NOT NULL,
+  last_name    varchar(255)  NOT NULL,
+  email        varchar(255)  NOT NULL
+);
+```
+
+Insert a row of data into the `customer` table.
+```{sql, connection=con_toy_store}
+INSERT INTO customer(
+  first_name, last_name, email
+) VALUES (
+  'Bill', 'Sanchez', 'bill_sanchez_666@hotmail.com'
+);
+```
+
+Query the `customer` table to see if everything worked.
+```{sql, connection=con_toy_store}
+SELECT * FROM customer;
+```
+
+It worked!
+
+Disconnect from the _toy_store_ database.
+```{r}
+dbDisconnect(con_toy_store)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

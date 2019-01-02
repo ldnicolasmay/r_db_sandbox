@@ -1,3 +1,7 @@
--- !preview conn=con
+-- !preview conn=world_db
 
-SELECT TOP 10 * FROM "mydb"."dbo"."flights"
+-- notice that the connection (conn) is set to world_db above
+
+SELECT Name, Continent, Region 
+  FROM Country 
+  LIMIT 10;
