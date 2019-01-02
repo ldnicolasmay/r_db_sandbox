@@ -1,0 +1,421 @@
+---
+title: "Chapter 2"
+author: "Nicolas May"
+date: "1/2/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE)
+```
+
+# Connect to AWS PostgreSQL Server
+
+Load useful libraries.
+```{r}
+library(DBI)
+library(odbc)
+library(RPostgreSQL)
+```
+
+Connecto to the _dvdrental_ database.
+```{r}
+con_dvdrental <- DBI::dbConnect(odbc::odbc(), "PostgreSQL AWS dvdrental")
+```
+
+
+# Chapter Sections
+
+## Introduction to the SELECT Statement to Retrieve Rows of Data
+
+```{sql, connection=con_dvdrental}
+SELECT * FROM customer;
+```
+
+```{sql, connection=con_dvdrental}
+SELECT first_name, email
+  FROM customer;
+```
+
+```{sql, connection=con_dvdrental}
+SELECT last_name
+  FROM customer;
+```
+
+```{sql, connection=con_dvdrental}
+SELECT country, country_id
+  FROM country;
+```
+
+What tables are in the _dvdrental_ database?
+```{r}
+dbListTables(con_dvdrental)
+```
+
+
+## Introduction to the SELECT DISTINCT Statement
+
+```{sql, connection=con_dvdrental}
+SELECT * FROM film;
+```
+
+```{sql, connection=con_dvdrental}
+SELECT DISTINCT rental_rate FROM film;
+```
+
+```{r}
+dbListFields(con_dvdrental, 'film')
+```
+
+```{sql, connection=con_dvdrental}
+SELECT DISTINCT rental_duration
+  FROM film;
+```
+
+```{sql, connection=con_dvdrental}
+SELECT DISTINCT rating
+  FROM film;
+```
+
+
+## SELECT Statement with WHERE Clause
+
+Here's a template for using the `WHERE` clause to filter results:
+```
+SELECT column_name
+  FROM table_name
+  WHERE <condition = true>;
+```
+
+Using just a `WHERE` clause:
+```{sql, connection=con_dvdrental}
+SELECT title, rental_rate
+  FROM film
+  WHERE rental_rate = 0.99;
+```
+
+Using a `WHERE` clause with a logical operator (`AND`, `OR`):
+```{sql, connection=con_dvdrental}
+SELECT title, rental_rate
+  FROM film
+  WHERE rental_rate = 0.99
+    AND rating = 'PG';
+```
+
+```{sql, connection=con_dvdrental}
+SELECT first_name, last_name, email
+  FROM customer
+  WHERE first_name = 'Everett'
+    AND last_name  = 'Banda';
+```
+
+```{sql, connection=con_dvdrental}
+SELECT *
+  FROM film
+  WHERE title       = 'Boulevard Mob'
+    AND rental_rate = 0.99;
+```
+
+Out of my own curiosity, what's in the `fulltext` field in the `film` table?
+```{r}
+full_text_ex <- 
+  dbGetQuery(con_dvdrental,
+             "SELECT fulltext
+                FROM film
+                WHERE title = 'Boulevard Mob';")
+str(full_text_ex)
+full_text_ex <- full_text_ex[[1, 'fulltext']]
+class(full_text_ex)
+full_text_ex
+```
+
+The next section uses the _petshop_ database, so we can close the _dvdrental_ database.
+```{r}
+dbDisconnect(con_dvdrental)
+```
+
+
+## Insert Data into Tables, Update, and Delete Rows
+
+This section uses the _petshop_ database, so let's create a connection to that.
+```{r}
+con_petshop <- dbConnect(odbc::odbc(), "PostgreSQL AWS petshop")
+dbListTables(con_petshop)
+```
+
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+### Insert a records using `INSERT INTO`
+
+This next code block simply resets the auto-incrementing `dog_id` field to restart with the number 2.
+```{sql, connection=con_petshop}
+ALTER SEQUENCE dogs_dog_id_seq RESTART WITH 2;
+```
+
+Now for the insert.
+```{sql, connection=con_petshop}
+INSERT INTO dogs(
+  name, age, weight
+) VALUES (
+  'Spot', 3, 23
+);
+```
+
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+So far, so good.
+
+### Updating a record with `UPDATE`
+
+Now, let's update a record. Let's change Spot's age to 4.
+```{sql, connection=con_petshop}
+UPDATE dogs
+  SET   age    = 4
+  WHERE name   = 'Spot';
+```
+
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+The age update worked.
+
+Now let's change Spot's name to "Sparky".
+```{sql, connection=con_petshop}
+UPDATE dogs
+  SET   name   = 'Sparky'
+  WHERE name   = 'Spot';
+```
+
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+The name update worked.
+
+### Deleting a record with `DELETE`
+
+Now, let's delete the records we just added (`dog_id` 2).
+
+Before we delete, let's first do a `SELECT` ... `WHERE` to make sure we're deleting the right record.
+```{sql, connection=con_petshop}
+SELECT * 
+  FROM dogs
+  WHERE name = 'Sparky';
+```
+
+That's the one. So, now let's delete it.
+```{sql, connection=con_petshop}
+DELETE FROM dogs
+  WHERE name = 'Sparky';
+```
+
+Confirm the deletion.
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+The record deletion worked.
+
+### Exercise
+
+#### Task 1
+
+Write a query that updates the age column to 5 in the first row. (Really, this isn't a "query", it's a "statement".)
+
+```{sql, connection=con_petshop}
+UPDATE dogs
+  SET   age    = 5
+  WHERE name   = 'Rover';
+```
+
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+#### Task 2
+
+Write a query that deletes the first row. (Again, "statement", not "query".)
+
+```{sql, connection=con_petshop}
+SELECT *
+  FROM dogs
+  WHERE name = 'Rover';
+```
+
+```{sql, connection=con_petshop}
+DELETE FROM dogs
+  WHERE name = 'Rover';
+```
+
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+Where done with the _petshop_ database, so we can close the connection.
+
+```{r}
+dbDisconnect(con_petshop)
+```
+
+
+## Assignment
+
+### Problem 1
+
+You're an employee at the DVD rental store and someone brings a wallet they found to the front desk. You discover the wallet belongs to Terry Grissom. Using knowledge from section 2, find a way to querry Terry's email from the database to let him know about his wallet.
+
+```{r}
+con_dvdrental <- dbConnect(odbc::odbc(), "PostgreSQL AWS dvdrental")
+dbListTables(con_dvdrental)
+dbListFields(con_dvdrental, 'customer')
+```
+
+```{sql, connection=con_dvdrental}
+SELECT first_name, last_name, email
+  FROM customer
+  WHERE first_name = 'Terry'
+    AND last_name  = 'Grissom';
+```
+
+```{sql, connection=con_dvdrental}
+SELECT *
+  FROM customer
+  WHERE first_name = 'Terry'
+    AND last_name  = 'Grissom';
+```
+
+### Problem 2
+
+It's another data at the DVD rental store and your manager needs assistance to see each of the unique category IDs. Write a query that will return results showing all of the unique category IDs.
+
+```{r}
+dbListTables(con_dvdrental)
+dbListFields(con_dvdrental, 'category')
+```
+
+```{sql, connection=con_dvdrental}
+SELECT DISTINCT category_id
+  FROM category;
+```
+
+For my own curiosity...
+```{sql, connection=con_dvdrental}
+SELECT DISTINCT category_id, name
+  FROM category
+  ORDER BY category_id ASC;
+```
+
+We're done with this database for now.
+```{r}
+dbDisconnect(con_dvdrental)
+```
+
+### Problem 3
+
+```{r}
+con_petshop <- dbConnect(odbc::odbc(), "PostgreSQL AWS petshop")
+```
+
+There should be nothing in the _petshop_ database now.
+
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+#### Problem 3, Part 1
+
+Now you're an employee at the pet shop, and a new dog has been added to your pet inventory. Write a query to add the new dog using the following information:
+
+* Name -- Beethoven
+* Age -- 2
+* Weight -- 22
+
+```{sql, connection=con_petshop}
+INSERT INTO dogs(
+  name, age, weight
+) VALUES (
+  'Beethoven', 2, 22
+);
+```
+
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+Notice the the `dog_id` for Beethoven is 3.
+
+#### Problem 3, Part 2
+
+After adding the new dog, you realize the weight data is wrong, and it should be 32 instead of 22. Write a query to update the weight for Beethoven.
+
+```{sql, connection=con_petshop}
+UPDATE dogs
+  SET   weight = 32
+  WHERE name   = 'Beethoven';
+```
+
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+It worked.
+
+#### Probelm 3, Part 3
+
+Still at the pet shop, you are informed that Beethoven has been sold. Write a query to remove Beethoven's record from the `dogs` table.
+
+```{sql, connection=con_petshop}
+SELECT *
+  FROM dogs
+  WHERE name = 'Beethoven';
+```
+
+```{sql, connection=con_petshop}
+DELETE FROM dogs
+  WHERE name = 'Beethoven';
+```
+
+```{sql, connection=con_petshop}
+SELECT * FROM dogs;
+```
+
+The record deletion worked.
+
+Disconnection from the _petshop_ database.
+```{r}
+dbDisconnect(con_petshop)
+```
+
+
+```
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+```
