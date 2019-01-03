@@ -10,10 +10,10 @@ knitr::opts_chunk$set(echo = TRUE, error = TRUE)
 ```
 
 Load useful libraries.
-```{r}
+```{r libraries}
 library(DBI)
 library(odbc)
-library(RPostgreSQL)
+library(RPostgres)
 ```
 
 
@@ -29,33 +29,34 @@ SELECT COUNT(*) FROM table_name;
 ```
 
 We'll be using the _dvdrental_ database for this section, so let's create a connection to it.
-```{r}
-con_dvdrental <- dbConnect(odbc::odbc(), "PostgreSQL AWS dvdrental")
+```{r db_connection}
+con_dvdrental <- dbConnect(odbc::odbc(), "PostgreSQL AWS dvdrental",
+                           bigint = "numeric") # needed for knitr... ???
 # dbListTables(con_dvdrental)
 ```
 
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT * FROM customer;
 ```
 
-```{sql, connection=con_dvdrental}
-SELECT COUNT(*) 
+```{sql connection=con_dvdrental}
+SELECT COUNT(*)
   FROM customer;
 ```
 
 ### Counting non-null rows in a table for particular column(s)
 
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT * FROM address;
 ```
 
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT COUNT(*) 
   FROM address;
 ```
 
 
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT COUNT(address2) 
   FROM address;
 ```
@@ -66,7 +67,7 @@ SELECT COUNT(address2)
 
 Write a query that counts the number of records in the payment table.
 
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT COUNT(*) 
   FROM payment;
 ```
@@ -81,12 +82,12 @@ SELECT COUNT(DISTINCT column_name)
 ```
 
 First, how many records are there in the `customer` table?
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT COUNT(*) FROM customer;
 ```
 
 Now, how many distinct first names are there in the `customer` table?
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT COUNT(DISTINCT first_name)
   FROM customer;
 ```
@@ -102,13 +103,13 @@ dbListFields(con_dvdrental, 'payment')
 ```
 
 
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT COUNT(DISTINCT amount)
   FROM payment;
 ```
 
 Out of curiosity, what are the 19 unique amounts?
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT DISTINCT amount
   FROM payment
   ORDER BY amount ASC;
@@ -126,17 +127,17 @@ SELECT column_name_1, column_name2
 
 You can leave `ASC` out, because ascending order is the default. The alternative is `DESC`.
 
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT * FROM customer;
 ```
 
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT customer_id, first_name, last_name
   FROM customer
   ORDER BY last_name;
 ```
 
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT customer_id, first_name, last_name
   FROM customer
   ORDER BY customer_id;
@@ -152,16 +153,138 @@ Write a query for the _actor_ table that selects the first name and last name co
 dbListFields(con_dvdrental, 'actor')
 ```
 
-```{sql, connection=con_dvdrental}
+```{sql connection=con_dvdrental}
 SELECT first_name, last_name
   FROM actor
-  ORDER BY last_name;
+  ORDER BY last_name; -- ASC by default
 ```
+
+
+## Using ORDER BY with ASC and DESC Modifiers
+
+```{sql connection=con_dvdrental}
+SELECT * 
+  FROM customer
+  ORDER BY last_name DESC;
+```
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM customer
+  ORDER BY last_name ASC;
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query that returns all the city names in descending order.
+
+OK, what table might have "city" names?
+```{r}
+dbListTables(con_dvdrental)
+```
+
+It looks like there's a `city` table. Great. What fields does it have?
+
+```{r}
+dbListFields(con_dvdrental, 'city')
+```
+
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM city
+  ORDER BY city DESC;
+```
+
+
+## Assignment
+
+### Problem 1
+
+You're an employee at the DVD rental store and your manager needs to know how many payment records are in the database. Write a query the returns the number of payment records from the database.
+
+```{r}
+dbListTables(con_dvdrental)
+```
+
+```{r}
+dbListFields(con_dvdrental, 'payment')
+```
+
+```{sql connection=con_dvdrental}
+SELECT * FROM payment;
+```
+
+`payment_id` in the `payment` table is probably the primary key for payments. Let's see.
+
+```{sql connection=con_dvdrental}
+SELECT COUNT(*)
+  FROM payment;
+```
+
+```{sql connection=con_dvdrental}
+SELECT COUNT(DISTINCT payment_id)
+  FROM payment;
+```
+
+Yep... `payment_id` is the primary key. There are 14,596 unique payment records.
+
+### Problem 2
+
+You're still a fairly new employee at the DVD rental store and you're curious about how many stores there are. You realize that each store has an ID, so that's your first clue to figuring out how many stores exist. Write a query that returns the number of unique store IDs from the database.
+
+```{r}
+dbListTables(con_dvdrental)
+```
+
+```{r}
+dbListFields(con_dvdrental, 'store')
+```
+
+```{sql connection=con_dvdrental}
+SELECT COUNT(DISTINCT store_id)
+  FROM store;
+```
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM store
+  ORDER BY store_id;
+```
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM staff_list;
+```
+
+Okiedokie... that was anticlimactic... only 2 stores.
+
+### Problem 3
+
+It's another day at the DVD rental store and your coworker asks you for help organizing film titles Write a query that returns the film titles in reverse alphabetical order.
+
+```{r}
+dbListTables(con_dvdrental)
+```
+
+```{r}
+dbListFields(con_dvdrental, 'film')
+```
+
+```{sql connection=con_dvdrental}
+SELECT film_id, title, release_year, rental_duration, length, rating
+  FROM film
+  ORDER BY title DESC;
+```
+
 
 Disconnect from the _dvdrental_ database.
 ```{r}
 dbDisconnect(con_dvdrental)
 ```
+
 
 
 ```
