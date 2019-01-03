@@ -1,0 +1,193 @@
+---
+title: "Chapter 3"
+author: "Nicolas May"
+date: "1/2/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE)
+```
+
+Load useful libraries.
+```{r}
+library(DBI)
+library(odbc)
+library(RPostgreSQL)
+```
+
+
+# Chapter Sections
+
+## Count All Rows Using the COUNT Function
+
+### Counting all rows in a table
+
+The template for counting the rows in a table is:
+```
+SELECT COUNT(*) FROM table_name;
+```
+
+We'll be using the _dvdrental_ database for this section, so let's create a connection to it.
+```{r}
+con_dvdrental <- dbConnect(odbc::odbc(), "PostgreSQL AWS dvdrental")
+# dbListTables(con_dvdrental)
+```
+
+```{sql, connection=con_dvdrental}
+SELECT * FROM customer;
+```
+
+```{sql, connection=con_dvdrental}
+SELECT COUNT(*) 
+  FROM customer;
+```
+
+### Counting non-null rows in a table for particular column(s)
+
+```{sql, connection=con_dvdrental}
+SELECT * FROM address;
+```
+
+```{sql, connection=con_dvdrental}
+SELECT COUNT(*) 
+  FROM address;
+```
+
+
+```{sql, connection=con_dvdrental}
+SELECT COUNT(address2) 
+  FROM address;
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query that counts the number of records in the payment table.
+
+```{sql, connection=con_dvdrental}
+SELECT COUNT(*) 
+  FROM payment;
+```
+
+
+## Use COUNT with the DISTINCT Clause
+
+The template for using `COUNT` with the `DISTINCT` clause is:
+```
+SELECT COUNT(DISTINCT column_name)
+  FROM table_name;
+```
+
+First, how many records are there in the `customer` table?
+```{sql, connection=con_dvdrental}
+SELECT COUNT(*) FROM customer;
+```
+
+Now, how many distinct first names are there in the `customer` table?
+```{sql, connection=con_dvdrental}
+SELECT COUNT(DISTINCT first_name)
+  FROM customer;
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query that counts the number of distinct _amount_ records from the payment table.
+
+```{r}
+dbListFields(con_dvdrental, 'payment')
+```
+
+
+```{sql, connection=con_dvdrental}
+SELECT COUNT(DISTINCT amount)
+  FROM payment;
+```
+
+Out of curiosity, what are the 19 unique amounts?
+```{sql, connection=con_dvdrental}
+SELECT DISTINCT amount
+  FROM payment
+  ORDER BY amount ASC;
+```
+
+
+## Order Query Results with the ORDER BY Clause
+
+The template for ordering results of a query:
+```
+SELECT column_name_1, column_name2
+  FROM table_name
+  ORDER BY column_name_1 ASC;
+```
+
+You can leave `ASC` out, because ascending order is the default. The alternative is `DESC`.
+
+```{sql, connection=con_dvdrental}
+SELECT * FROM customer;
+```
+
+```{sql, connection=con_dvdrental}
+SELECT customer_id, first_name, last_name
+  FROM customer
+  ORDER BY last_name;
+```
+
+```{sql, connection=con_dvdrental}
+SELECT customer_id, first_name, last_name
+  FROM customer
+  ORDER BY customer_id;
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query for the _actor_ table that selects the first name and last name columns, ordered by last name.
+
+```{r}
+dbListFields(con_dvdrental, 'actor')
+```
+
+```{sql, connection=con_dvdrental}
+SELECT first_name, last_name
+  FROM actor
+  ORDER BY last_name;
+```
+
+Disconnect from the _dvdrental_ database.
+```{r}
+dbDisconnect(con_dvdrental)
+```
+
+
+```
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+```
