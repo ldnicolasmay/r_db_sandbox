@@ -2,7 +2,10 @@
 title: "Chapter 1"
 author: "Nicolas May"
 date: "January 1, 2019"
-output: html_document
+output: 
+  html_document:
+    theme: readable
+    highlight: zenburn
 ---
 
 ```{r setup, include=FALSE}
