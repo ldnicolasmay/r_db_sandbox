@@ -1,0 +1,134 @@
+---
+title: "Chapter4"
+author: "Nicolas May"
+date: "January 3, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load useful libraries.
+```{r libraries}
+library(DBI)
+library(odbc)
+library(RPostgres)
+```
+
+
+# Chapter Sections
+
+Connect to the _dvdrental_ database.
+```{r}
+con_dvdrental <- dbConnect(odbc::odbc(), "PostgreSQL AWS dvdrental")
+```
+
+
+## Query Rows of Data Using the BETWEEN Operator
+
+The template for using the `BETWEEN` operator is:
+```
+SELECT column_name_x
+  FROM table_name
+  WHERE column_name_y
+  BETWEEN low_value
+    AND high_value;
+```
+
+Here's a working example:
+```{sql connection=con_dvdrental}
+SELECT customer_id, first_name, last_name, email
+  FROM customer
+  WHERE customer_id
+  BETWEEN 1
+    AND 10;
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query that selects the `customer_id` column fromt the `payment` table where the value range of the amount column is between 10.00 and 12.00.
+
+```{r}
+dbListFields(con_dvdrental, "payment")
+```
+
+```{sql connection=con_dvdrental}
+SELECT customer_id, amount
+  FROM payment
+  WHERE amount
+  BETWEEN 10.00
+    AND 12.00
+  ORDER BY amount DESC; -- added an ORDER BY
+```
+
+
+## Introduction to NOT BETWEEN
+
+Working example:
+```{sql connection=con_dvdrental}
+SELECT customer_id, first_name, last_name
+  FROM customer
+  WHERE customer_id
+  NOT BETWEEN 1
+    AND 10
+  ORDER BY customer_id;
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query that selects the `replacement_cost` and `title` columns from the `film` table where the values are outside the range of 1.00 through 15.00.
+
+```{sql connection=con_dvdrental}
+SELECT replacement_cost, title
+  FROM film
+  WHERE replacement_cost
+  NOT BETWEEN 1.00
+    AND 15.00
+  ORDER BY replacement_cost DESC;
+```
+
+
+## Search for a Specified Pattern in a Column Using the LIKE Operator
+
+
+
+Disconnect from _dvdrental_ database.
+```{r}
+dbDisconnect(con_dvdrental)
+```
+
+
+
+
+```
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+```
