@@ -41,8 +41,7 @@ Here's a working example:
 SELECT customer_id, first_name, last_name, email
   FROM customer
   WHERE customer_id
-  BETWEEN 1
-    AND 10;
+    BETWEEN 1 AND 10;
 ```
 
 ### Exercise
@@ -59,8 +58,7 @@ dbListFields(con_dvdrental, "payment")
 SELECT customer_id, amount
   FROM payment
   WHERE amount
-  BETWEEN 10.00
-    AND 12.00
+    BETWEEN 10.00 AND 12.00
   ORDER BY amount DESC; -- added an ORDER BY
 ```
 
@@ -72,8 +70,7 @@ Working example:
 SELECT customer_id, first_name, last_name
   FROM customer
   WHERE customer_id
-  NOT BETWEEN 1
-    AND 10
+    NOT BETWEEN 1 AND 10
   ORDER BY customer_id;
 ```
 
@@ -87,22 +84,166 @@ Write a query that selects the `replacement_cost` and `title` columns from the `
 SELECT replacement_cost, title
   FROM film
   WHERE replacement_cost
-  NOT BETWEEN 1.00
-    AND 15.00
+    NOT BETWEEN 1.00 AND 15.00
   ORDER BY replacement_cost DESC;
 ```
 
 
 ## Search for a Specified Pattern in a Column Using the LIKE Operator
 
+The `LIKE` operator is useful for string pattern matching. Examples:
 
+* Values in the `first_name` column that start with 'A'
+* Values in the `last_name` column that end with 'e'
+
+The `LIKE` operator uses wildcards:
+1. `%` - zero, one, or multiple characters (like regex `*`)
+2. `_` - one character (like regex `?`)
+
+Here's a template for using the `LIKE` operator:
+```
+SELECT first_name, last_name
+  FROM customer
+  WHERE first_name
+    LIKE 'A%';      -- matches any last name starting with 'A'
+```
+
+Let's try a few examples.
+
+```{sql connection=con_dvdrental}
+SELECT first_name, last_name
+  FROM customer
+  WHERE first_name
+    LIKE 'A%';
+```
+
+```{sql connection=con_dvdrental}
+SELECT first_name, last_name
+  FROM customer
+  WHERE last_name
+    LIKE '%e';
+```
+
+```{sql connection=con_dvdrental}
+SELECT first_name, last_name
+  FROM customer
+  WHERE first_name
+    LIKE '_d%';
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query that selects all columns from the actor table but returns rows where values in the `last_name` column end with 'da'.
+
+```{r}
+dbListFields(con_dvdrental, "actor")
+```
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM actor
+  WHERE last_name LIKE '%da';
+```
+
+From the PG documentation, I see we can also use POSIX regex with the `~` operator.
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM actor
+  WHERE last_name ~ '^C.*e$'; -- POSIX regex, starts w/ 'C', ends with 'e'
+```
+
+
+## Match a Value to a List of Values with the IN Operator
+
+An example of use of the `IN` operator:
+```
+SELECT first_name, last_name
+  FROM customer
+  WHERE first_name
+    IN ('John', 'Mary', 'Timothy');
+```
+
+```{sql connection=con_dvdrental}
+SELECT first_name, last_name
+  FROM customer
+  WHERE first_name
+    IN ('Mary', 'James');
+```
+
+### Exercise 
+
+#### Task 1
+
+Write a query that selects the `first_name` and `last_name` columns from the actor table but returns rows where values in the `first_name` column are equal to Morgan, Julia, or Kenneth.
+
+```{sql connection=con_dvdrental}
+SELECT first_name, last_name
+  FROM actor
+  WHERE first_name
+    IN ('Morgan', 'Julia', 'Kenneth');
+```
+
+
+## Assignment
+
+### Problem 1
+
+It's another day at the DVD rental store, and your manager needs you to query the database for all the customer by `customer_id` 1 through 10.
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM customer
+  WHERE customer_id
+    BETWEEN 1 AND 10;
+```
+
+### Problem 2
+
+Later in the day, your manager asks you to query all the customer from the database _except_ those with `customer_id` 1 through 10.
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM customer
+  WHERE customer_id
+    NOT BETWEEN 1 AND 10
+  ORDER BY customer_id ASC;
+```
+
+### Problem 3
+
+It's the next day at the DVD rental store, and a customer is having trouble finding a particular film. They tell you they know the film title starts with the characters 'Tru', but they're unsure how to spell the rest of the title. Write a query that will return the films matching this description.
+
+```{r}
+dbListFields(con_dvdrental, "film")
+```
+
+```{sql connection=con_dvdrental}
+SELECT title, release_year, rental_rate, length, rating
+  FROM film
+  WHERE title LIKE 'Tru%';
+```
+
+### Problem 4
+
+Right after helping your last customer, your coworker asks you for help to audit all the films that have a certain rating. Write a query for the film table that will return rows where the rating is G, PG-13, or R.
+
+```{sql connection=con_dvdrental}
+SELECT title, length, rating
+  FROM film
+  WHERE rating 
+    IN ('G', 'PG-13', 'R')
+  ORDER BY length DESC;
+```
+
+### Disconnect from database
 
 Disconnect from _dvdrental_ database.
 ```{r}
 dbDisconnect(con_dvdrental)
 ```
-
-
 
 
 ```
