@@ -271,6 +271,12 @@ SELECT SUM(DISTINCT(amount))
   FROM payment;
 ```
 
+## Disconnect from database
+
+```{r}
+dbDisconnect(con_dvdrental)
+```
+
 
 ```
 ###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
