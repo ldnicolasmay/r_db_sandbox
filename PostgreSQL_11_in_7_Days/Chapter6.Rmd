@@ -1,0 +1,217 @@
+---
+title: "Chapter 6"
+author: "Nicolas May"
+date: "1/5/2019"
+output: 
+  html_document:
+    theme: readable
+    highlight: zenburn
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load useful libraries.
+```{r libraries}
+library(DBI)
+library(odbc)
+library(RPostgres)
+```
+
+# Chapter Sections
+
+Connect to the _dvdrental_ database.
+
+```{r}
+con_dvdrental <- dbConnect(odbc::odbc(), "PostgreSQL AWS dvdrental",
+                           bigint = "numeric")
+```
+
+## Group Data with the GROUP BY Clause
+
+An example using the `GROUP BY` clause:
+```
+SELECT customer_id, SUM(amount)
+  FROM payment
+  GROUP BY customer_id;
+```
+
+```{sql connection=con_dvdrental}
+SELECT customer_id, SUM(amount)
+  FROM payment
+  GROUP BY customer_id
+  ORDER BY SUM(amount) DESC;
+```
+
+```{r}
+customer_sums <-
+  dbGetQuery(con_dvdrental,
+             "SELECT customer_id, SUM(amount)
+                FROM payment
+                GROUP BY customer_id
+                ORDER BY sum DESC;")
+library(ggplot2)
+ggplot(customer_sums, aes(x = sum)) +
+  geom_histogram(binwidth = 5, na.rm = TRUE) +
+  scale_x_continuous(limits = c(0L, 250L))
+dbGetQuery(con_dvdrental,
+           "SELECT AVG(sub.sum) 
+              FROM (
+                SELECT customer_id, SUM(amount) as sum
+                  FROM payment
+                  GROUP BY customer_id
+              ) sub;")
+```
+
+```{sql connection=con_dvdrental}
+SELECT AVG(sub.sum)
+  FROM (
+    SELECT customer_id, SUM(amount) as sum
+      FROM payment
+      GROUP BY customer_id
+  ) sub;
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query that returns the number of films by rating.
+
+```{sql connection=con_dvdrental}
+SELECT rating, COUNT(*)
+  FROM film
+  GROUP BY rating
+  ORDER BY rating;
+```
+
+
+## The HAVING Clause
+
+An example using the `HAVING` filter:
+```
+SELECT customer_id, SUM(amount)
+  FROM payment
+  GROUP BY customer_id
+  HAVING SUM(amount) > 200;
+```
+
+`HAVING` vs. `WHERE` -- `WHERE` is used to filter rows _*BEFORE*_ a `GROUP BY` clause, whereas `HAVING` is used to filter rows _*AFTER*_ a `GROUP BY` clause.
+
+An example with both `WHERE` and `HAVING`:
+```
+SELECT customer_id, SUM(amount)
+  FROM payment
+  WHERE customer_id != 10
+  GROUP BY customer_id
+  HAVING SUM(amount) > 200;
+```
+
+```{sql connection=con_dvdrental}
+SELECT customer_id, SUM(amount)
+  FROM payment
+  GROUP BY customer_id
+  HAVING SUM(amount) > 100
+  ORDER BY SUM(AMOUNT) ASC;
+```
+
+```{sql connection=con_dvdrental}
+SELECT customer_id, SUM(amount)
+  FROM payment
+  WHERE customer_id BETWEEN 25 AND 50
+  GROUP BY customer_id
+  HAVING SUM(amount) >= 125.00
+  ORDER BY customer_id;
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query that returns the number of films by rating with the rating 'G'.
+
+```{sql connection=con_dvdrental}
+SELECT rating, COUNT(*)
+  FROM film
+  GROUP BY rating
+  HAVING rating = 'G';
+```
+
+Here's a better exercise/task:
+```{sql connection=con_dvdrental}
+SELECT rating, COUNT(*)
+  FROM film
+  WHERE length > 150
+  GROUP BY rating
+  HAVING rating IN ('G', 'PG');
+```
+
+## PostgreSQL Aliases and the LIMIT Clause
+
+Aliases with `AS`:
+```{sql connection=con_dvdrental}
+SELECT first_name AS f_name
+  FROM customer
+  WHERE first_name LIKE 'Ad%';
+```
+
+Limiting results returned with `LIMIT`:
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM customer
+  ORDER BY customer_id DESC
+  LIMIT 5;
+```
+
+Using `OFFSET` with `ORDER BY`:
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM customer
+  ORDER BY customer_id ASC
+  LIMIT 5
+  OFFSET 3;
+```
+
+```{sql connection=con_dvdrental}
+SELECT customer_id AS id, first_name AS fn, last_name as ln
+  FROM customer
+  ORDER BY customer_id
+  LIMIT 7 OFFSET 13;
+```
+
+```{r}
+dbDisconnect(con_dvdrental)
+```
+
+
+```
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+```
+
+
+
