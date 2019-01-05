@@ -1,0 +1,301 @@
+---
+title: "Chapter 5"
+author: "Nicolas May"
+date: "January 4, 2019"
+output: 
+  html_document:
+    theme: readable
+    highlight: zenburn
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load useful libraries.
+```{r libraries}
+library(DBI)
+library(odbc)
+library(RPostgres)
+```
+
+
+# Chapter Sections
+
+Connect to the _dvdrental_ database.
+
+```{r}
+con_dvdrental <- dbConnect(odbc::odbc(), "PostgreSQL AWS dvdrental",
+                           bigint = "numeric")
+```
+
+
+## Using MIN and MAX Functions
+
+`MIN` and `MAX` template:
+
+```
+SELECT MIN(rental_rate)
+  FROM film;
+```
+
+```
+SELECT MIN(rental_rate)
+  FROM film;
+```
+
+```{sql connection=con_dvdrental}
+SELECT MIN(rental_rate)
+  FROM film;
+```
+
+```{sql connection=con_dvdrental}
+SELECT MAX(rental_rate)
+  FROM film;
+```
+
+### Using a subselect
+
+Here we query _dvdrental_ for all films that have a rental rate that match the minimum rental rate ($0.99).
+```{sql connection=con_dvdrental}
+SELECT film_id, title, rental_rate, length
+  FROM film
+  WHERE rental_rate = (
+    SELECT MIN(rental_rate)
+      FROM film
+  );
+```
+
+Let's do a subselect for the max movie runtime (`length`).
+```{sql connection=con_dvdrental}
+SELECT film_id, title, rental_rate, length
+  FROM film
+  WHERE length = (
+    SELECT MAX(length)
+      FROM film
+    )
+  ORDER BY rental_rate ASC, title DESC;
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query the returns the maximum value of the `amount` column from the "payment" table.
+
+Bonus: Write a subselect that returns all the rows that match the maximum value.
+
+```{sql connection=con_dvdrental}
+SELECT MAX(amount)
+  FROM payment;
+```
+
+```{r}
+dbListFields(con_dvdrental, "payment")
+```
+
+```{sql connection=con_dvdrental}
+SELECT payment_id, customer_id, staff_id, amount, payment_date
+  FROM payment
+  WHERE amount = (
+    SELECT MAX(amount)
+      FROM payment
+  );
+```
+
+#### Task 2
+
+Write a query the returns the minimum value of the `rental_duration` column from the "film" table.
+
+Bonus: Write a subselect that returns all the rows that match the minimum value.
+
+```{sql connection=con_dvdrental}
+SELECT MIN(rental_duration)
+  FROM film;
+```
+
+```{r}
+dbListFields(con_dvdrental, "film")
+```
+
+
+```{sql connection=con_dvdrental}
+SELECT film_id, title, rental_duration, length, rating
+  FROM film
+  WHERE rental_duration = (
+    SELECT MIN(rental_duration)
+      FROM film
+  );
+```
+
+
+## Using MIN and MAX with the ROUND Function
+
+Example of the `ROUND` function:
+```
+SELECT ROUND(MIN(rental_rate))
+  FROM film;
+```
+
+```{sql connection=con_dvdrental}
+SELECT MIN(rental_rate) 
+  FROM film;
+```
+
+```{sql connection=con_dvdrental}
+SELECT ROUND(MIN(rental_rate))
+  FROM film;
+```
+
+```{sql connection=con_dvdrental}
+SELECT ROUND(MIN(rental_rate), 1)
+  FROM film;
+```
+
+
+## Using the AVG and SUM Functions
+
+Here are an examples of the `AVG` and `SUM` functions:
+
+```
+SELECT AVG(rental_rate)
+  FROM film;
+```
+
+```
+SELECT SUM(rental_rate)
+  FROM film;
+```
+
+```{sql connection=con_dvdrental}
+SELECT AVG(amount)
+  FROM payment;
+```
+
+```{sql connection=con_dvdrental}
+SELECT ROUND(AVG(amount), 2)
+  FROM payment;
+```
+
+```{sql connection=con_dvdrental}
+SELECT DISTINCT(amount)
+  FROM payment
+  ORDER BY amount;
+```
+
+```{sql connection=con_dvdrental}
+SELECT AVG(DISTINCT(amount))
+  FROM payment;
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query the returns the average replacmetn cost from the film table.
+
+```{sql connection=con_dvdrental}
+SELECT AVG(replacement_cost)
+  FROM film;
+```
+
+```{sql connection=con_dvdrental}
+SELECT AVG(DISTINCT(replacement_cost))
+  FROM film;
+```
+
+
+## Using AVG and SUM with the ROUND Function
+
+I've already done this above.
+
+
+## Assignment
+
+### Problem 1
+
+It's another day at the DVD rental store, and your manager has asked you to find out the highest amount paid from the payment table.
+
+```{sql connection=con_dvdrental}
+SELECT MAX(amount)
+  FROM payment;
+```
+
+
+### Problem 2
+
+Later in the day, your manager asks you to find out the lowest amount paid from the payment table. 
+
+```{sql connection=con_dvdrental}
+SELECT MIN(amount)
+  FROM payment;
+```
+
+Which transactions had a 0 (zero) amount?
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM payment
+  WHERE amount = (
+    SELECT MIN(amount)
+      FROM payment
+  );
+```
+
+How many transactions had a 0 (zero) amount?
+
+```{sql connection=con_dvdrental}
+SELECT COUNT(*)
+  FROM payment
+  WHERE amount = (
+    SELECT MIN(amount)
+      FROM payment
+  );
+```
+
+### Problem 3
+
+It's the next day at the DVD rental store, and you're helping your manager analyze values in the rental duration column from the film table. Your manager needs your help finding out the average rental duration rounded to the nearest integer. 
+
+```{sql connection=con_dvdrental}
+SELECT ROUND(AVG(rental_duration), 0)
+  FROM film;
+```
+
+### Problem 4
+
+Later in the day, your manager asks you to query the payment table to find the sum total of all distinct values in the amount column. 
+
+```{sql connection=con_dvdrental}
+SELECT SUM(DISTINCT(amount))
+  FROM payment;
+```
+
+
+```
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+```
