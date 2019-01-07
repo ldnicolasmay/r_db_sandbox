@@ -180,6 +180,182 @@ SELECT customer_id AS id, first_name AS fn, last_name as ln
   LIMIT 7 OFFSET 13;
 ```
 
+
+## Exploring Inner Joins
+
+Example of an inner join between _customer_ and _payment_ tables.
+```
+SELECT
+    first_name, last_name, -- customer table
+    amount                 -- payment table
+  FROM
+    customer
+  INNER JOIN
+    payment
+    ON customer.cusomter_id = payment.customer_id; 
+```
+
+```{sql connection=con_dvdrental}
+SELECT
+    first_name, last_name, -- customer table
+    amount                 -- payment table
+  FROM
+    customer
+  INNER JOIN
+    payment
+    ON customer.customer_id = payment.customer_id;
+```
+
+### Exercise
+
+#### Task 1
+
+Write a query that selects the first_name, last_name, and address columns from the "customer" and "address" tables using an `INNER JOIN`.
+
+```{r}
+dbListFields(con_dvdrental, "customer")
+dbListFields(con_dvdrental, "address")
+```
+
+```{sql connection=con_dvdrental}
+SELECT
+    first_name, last_name, -- customer
+    address                -- address
+  FROM
+    customer
+  INNER JOIN
+    address
+    ON
+      customer.address_id = address.address_id;
+```
+
+## Exploring Outer Joins
+
+```{r}
+dbListTables(con_dvdrental)
+dbListFields(con_dvdrental, "film")
+dbListFields(con_dvdrental, "inventory")
+```
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM inventory
+  LIMIT 20;
+```
+
+### LEFT OUTER JOIN
+
+```{sql connection=con_dvdrental}
+SELECT
+  film.film_id, film.title, -- film
+  inventory.inventory_id    -- inventory
+FROM
+  film
+LEFT OUTER JOIN
+  inventory
+  ON
+    film.film_id = inventory.film_id
+  ORDER BY film_id, inventory_id;
+```
+
+### FULL OUTER JOIN
+
+```{sql connection=con_dvdrental}
+SELECT
+    film.film_id, film.title, -- film
+    inventory.inventory_id    -- inventory
+  FROM
+    film
+  LEFT OUTER JOIN
+    inventory
+    ON film.film_id = inventory.film_id
+  WHERE 
+    inventory.film_id IS NULL
+  ORDER BY 
+    film_id, inventory_id;
+```
+
+## Assignment
+
+```{r}
+dbListTables(con_dvdrental)
+```
+
+### Problem 1
+
+It's another day at the DVD rental store, and your manager asked for help find the sum of all payments transacted by staff ID.
+
+```{r}
+dbListFields(con_dvdrental, "payment")
+```
+
+
+```{sql connection=con_dvdrental}
+SELECT staff_id, SUM(amount)
+  FROM payment
+  GROUP BY staff_id
+  ORDER BY SUM(amount) DESC;
+```
+
+### Problem 2
+
+Corporate headquarters has decided to debut a loyalty program for customers who frequently visit the store. Before the program launches, your manager has decided to give customers with more than 40 transactions early access to the program. Write a query the returns the customer IDs having more than 40 transactions.
+
+```{sql connection=con_dvdrental}
+SELECT customer_id, COUNT(*)
+  FROM payment
+  GROUP BY customer_id
+  HAVING COUNT(*) > 40
+  ORDER BY COUNT(*) DESC;
+```
+
+### Problem 3
+
+It's the next day at the DVD rental store, and a customer approaches you for a favor. They want to mail a "Thank You" card to the manager of DVD rental store #2, but they don't have the address. Write a query that returns the address of store_id 2.
+
+```{r}
+dbListFields(con_dvdrental, "store")
+dbListFields(con_dvdrental, "address")
+```
+
+
+```{sql connection=con_dvdrental}
+SELECT
+    store.store_id,
+    address.address,
+    address.city_id,
+    address.postal_code
+  FROM store
+  INNER JOIN address
+    ON store.address_id = address.address_id
+  WHERE store.store_id = 2;
+```
+
+### Problem 4
+
+Later in the day your manager asks you for help locating address that do not have customers assigned to them. Write a query that returns all the columns for the address table that do not have matching customer records. 
+
+```{r}
+dbListFields(con_dvdrental, "customer")
+dbListFields(con_dvdrental, "address")
+```
+
+
+```{sql connection=con_dvdrental}
+SELECT
+    address.address_id,
+    address.address,
+    customer.customer_id,
+    customer.first_name,
+    customer.last_name
+  FROM address
+  LEFT OUTER JOIN customer
+    ON address.address_id = customer.address_id
+  WHERE customer.address_id IS NULL;
+```
+
+
+Disconnect from the _dvdrental_ database.
 ```{r}
 dbDisconnect(con_dvdrental)
 ```
