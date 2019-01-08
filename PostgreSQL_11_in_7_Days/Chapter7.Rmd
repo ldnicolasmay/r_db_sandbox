@@ -1,0 +1,448 @@
+---
+title: "Chapter 7"
+author: "Nicolas May"
+date: "January 7, 2019"
+output: 
+  html_document:
+    theme: cerulean
+    highlight: pygments
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = FALSE)
+```
+
+Load useful libraries.
+```{r libraries}
+library(DBI)
+library(odbc)
+library(RPostgres)
+```
+
+
+# Chapter Sections
+
+## Common PostgreSQL Datatypes
+
+Common types:
+
+* **Numeric**
+    * Integer: -2,147,483,648 to 2,147,483,647; 4 bytes
+    * Serial: Auto-incrementment integer; 1 to 2,147,483,647; 4 bytes
+    * Decimal: User-spec'd precision; up to 131,072 digits before decimal, and up to 16,383 digits after decimal; variable bytes
+
+* **Character**
+    * character(n) / char(n): fixed to _n_ length, padded with blanks
+    * character varying(n) / varchar(n): variable length, but limited to _n_
+    * text: variable length, unlimited
+
+* **Temporal**
+    * Date: Date values only
+    * Time: Time of day only
+    * Timestamp: Date + time
+    * Timestampz: Date + time + timezone
+
+
+## Common PostgreSQL Constraints
+
+```
+-- Constraints are repeated as comments
+CREATE TABLE dogs(
+  dog_id  serial        PRIMARY KEY, -- PRIMARY KEY
+  name    varchar(255)  NOT NULL,    -- NOT NULL
+  age     integer       NOT NULL,    -- NOT NULL
+  weight  integer       NOT NULL     -- NOT NULL
+);
+```
+
+Common constraints:
+
+* `PRIMARY KEY`: Uniquely identifies a row in a column or group of columns.
+* `FOREIGN KEY`: Specifies that the value in a column or group of columns must match the value in the row of another table referenced as the PRIMARY KEY.
+* `NOT NULL`: Indicates that a column must never accept a null value. Never used as a table-level constraint.
+* `CHECK`: The most generic constraint type. Allows us to specify that the value in a certain column must satisfy a condition (a Boolean expression). Here's an example:
+```
+CREATE DATABASE dogs(
+  dog_id  serial        PRIMARY KEY,
+  name    varchar(255)  NOT NULL,
+  age     integer       NOT NULL,
+  weight  integer       CHECK (weight > 0) NOT NULL
+);
+```
+* `UNIQUE`: Ensures that the data in a column or group of columns are unique among all rows in a table. Here's an example... with login usernames, which _have_ to be unique:
+```
+CREATE DATABASE users(
+  user_id   serial        PRIMARY KEY,
+  username  varchar(255)  UNIQUE NOT NULL,
+  password  varchar(255)  NOT NULL
+);
+```
+
+So far we've only looked at column-level constraints. There are also table-level constraints. Table-level constraints can be added at the end of a table-creation statment. Here's an example:
+```
+CREATE DATABASE users(
+  user_id   serial        PRIMARY KEY,
+  username  varchar(255)  NOT NULL,
+  password  varchar(255)  NOT NULL,
+  UNIQUE(username)
+);
+```
+
+
+## Advanced Administration of Your Database with ALTER TABLE
+
+`ALTER TABLE` allows us to modify the structure of our tables 
+
+* Add, remove, or rename a column
+* Change a column's datatype
+* Rename a table
+
+General syntax:
+```
+ALTER TABLE table_name action;
+```
+
+### Add, rename, or remove a column
+
+Say we have the following table:
+```
+CREATE DATABASE users(
+  user_id   serial        PRIMARY KEY,
+  username  varchar(255)  UNIQUE NOT NULL,
+  password  varchar(255)  NOT NULL
+);
+```
+
+We realize we need to add and `email` column, too:
+```
+ALTER TABLE users ADD COLUMN email varchar(255);
+```
+
+We realize we need to rename the `password` column to `passphrase`:
+```
+ALTER TABLE users RENAME COLUMN password TO passphrase;
+```
+
+We need to remove or _**drop**_ the `username` column (for whatever reason):
+```
+ALTER TABLE users DROP COLUMN username;
+```
+
+Now, we need to change a column's datatype:
+```
+ALTER TABLE users ALTER COLUMN passphrase SET DATATYPE char(8);
+```
+
+Finally, we need to rename the `users` table to `new_users`:
+```
+ALTER TABLE users RENAME TO new_users;
+```
+
+
+## Assignment
+
+### Problem 1
+
+You've been given the assignment of creating a database for a new note-taking application. Here are the jobs you must complete:
+
+1. Create a database for the `note_app`
+2. Create two tables for the `note_app` database: 
+    a. "users" table
+        i. user_id, PRIMARY KEY
+        ii. username
+        iii. email
+    b. "notes" table
+        i. note_id, PRIMARY KEY
+        ii. user_id, FOREIGN KEY
+        iii. title
+        iv. body
+      
+Connect to the de `postgres` database, the default administrative connection database.
+```{r}
+con_postgres <- dbConnect(odbc::odbc(), 'PostgreSQL AWS postgres',
+                          bigint = "numeric")
+```
+
+Create the `note_app` database.
+```{sql connection=con_postgres}
+-- CREATE DATABASE note_app;
+```
+
+Disconnect from the `postgres` database.
+```{r}
+dbDisconnect(con_postgres)
+```
+
+Connect to the new `note_app` database.
+```{r}
+con_note_app <- dbConnect(odbc::odbc(), 'PostgreSQL AWS note_app')
+```
+
+```{sql connection=con_note_app}
+DROP TABLE IF EXISTS notes;
+```
+
+```{sql connection=con_note_app}
+DROP TABLE IF EXISTS new_users;
+```
+
+```{sql connection=con_note_app}
+DROP TABLE IF EXISTS users;
+```
+
+Create the tables in the `note_app` database.
+```{sql connection=con_note_app}
+CREATE TABLE IF NOT EXISTS users(
+  user_id   serial        PRIMARY KEY,
+  username  varchar(255)  UNIQUE NOT NULL,
+  email     varchar(255)  NOT NULL
+);
+```
+
+```{sql connection=con_note_app}
+CREATE TABLE IF NOT EXISTS notes(
+  note_id  serial        PRIMARY KEY,
+  user_id  integer,
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+  title    varchar(255)  NOT NULL,
+  body     text          NOT NULL
+);
+```
+
+Insert one row of data in both tables so that one user shares a relationship with one note. (The primary key and foreign key should have the same value.)
+
+`DELETE`s and `ALTER`s below are necessary after first run.
+
+```{sql connection=con_note_app}
+DELETE FROM notes
+  WHERE user_id = 1;
+```
+
+```{sql connection=con_note_app}
+ALTER SEQUENCE notes_note_id_seq RESTART WITH 1;
+```
+
+```{sql connection=con_note_app}
+DELETE FROM users
+  WHERE username = 'sanchez_b'
+```
+
+```{sql connection=con_note_app}
+ALTER SEQUENCE users_user_id_seq RESTART WITH 1;
+```
+
+```{sql connection=con_note_app}
+INSERT INTO users(
+  username, email
+) VALUES (
+  'sanchez_b', 'sanchez_b_666@hotmail.com'
+);
+```
+
+```{sql connection=con_note_app}
+INSERT INTO notes(
+  user_id, title, body
+) VALUES (
+  1, 'My to-do list', '1. Pick up stuff; 2. Put stuff down; 3. Ponder'
+);
+```
+
+### Problem 2
+
+```{r}
+con_dvdrental <- dbConnect(odbc::odbc(), 'PostgreSQL AWS dvdrental',
+                           bigint = "numeric")
+```
+
+It's another day at the DVD rental store, and your manager needs you to query all the unique last names from the customer table.
+
+```{sql connection=con_dvdrental}
+SELECT DISTINCT(last_name)
+  FROM customer;
+```
+
+Next, your manager asks you to query the customer table to return all columns for customers with the last name "Franklin".
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM customer
+  WHERE last_name = 'Franklin';
+```
+
+### Problem 3
+
+It's the next day at the DVD rental store, and your manager has asked you to revisit the query you made yesterday. He wants you to count the number of rows with distinct values in the last name column of the customer table.
+
+```{sql connection=con_dvdrental}
+SELECT COUNT(DISTINCT last_name)
+  FROM customer;
+```
+
+### Problem 4
+
+Later in the day, your manager asks you to query the customer table to return all the columns for customers with an ID between 1 and 10.
+
+```{sql connection=con_dvdrental}
+SELECT *
+  FROM customer
+  WHERE customer_id 
+    BETWEEN 1 AND 10;
+```
+
+Next, query the customer table for all first names that start with 'Mar'.
+
+```{sql connection=con_dvdrental}
+SELECT first_name
+  FROM customer
+  WHERE first_name LIKE 'Mar%';
+```
+
+### Problem 5
+
+It's another day at the DVD rental store, and your manager has asked you to query the database to determine the sum of all amounts recorded in the payment table.
+
+```{sql connection=con_dvdrental}
+SELECT SUM(amount)
+  FROM payment;
+```
+
+Next, write a query that returns the maximum value from the amount column.
+
+```{sql connection=con_dvdrental}
+SELECT MAX(amount)
+  FROM payment;
+```
+
+Then, write a query that returns the minimum value.
+
+```{sql connection=con_dvdrental}
+SELECT MIN(amount)
+  FROM payment;
+```
+
+### Problem 6
+
+Later in the day, your coworker asks for your help with some reports. She needs help determining the total amount paid by each customer in the payment table.
+
+```{sql connection=con_dvdrental}
+SELECT customer_id, SUM(amount)
+  FROM payment
+  GROUP BY customer_id;
+```
+
+Next, she needs to know which of the customers have amounts totalling over $120.00.
+
+```{sql connection=con_dvdrental}
+SELECT customer_id, SUM(amount)
+  FROM payment
+  GROUP BY customer_id
+  HAVING SUM(amount) > 120.00;
+```
+
+Finally, she needs to find out the first and last names of customers who have amounts totalling over $120.00. (Hint: `INNER JOIN`)
+
+```{r}
+dbListFields(con_dvdrental, "payment")
+dbListFields(con_dvdrental, "customer")
+```
+
+```{sql connection=con_dvdrental}
+SELECT
+    result.customer_id,
+    result.sum,
+    customer.first_name,
+    customer.last_name
+  FROM (
+    SELECT customer_id, SUM(amount)
+      FROM payment
+      GROUP BY customer_id
+      HAVING SUM(amount) > 120.00) as result
+  INNER JOIN
+    customer ON result.customer_id = customer.customer_id
+  ORDER BY result.sum DESC;
+```
+
+Alternative to using a subquery:
+```{sql connection=con_dvdrental}
+SELECT
+    customer.first_name,
+    customer.last_name,
+    SUM(payment.amount)
+  FROM
+    customer
+  INNER JOIN
+    payment ON customer.customer_id = payment.customer_id
+  GROUP BY
+    customer.customer_id
+  HAVING
+    SUM(amount) > 120.00;
+```
+
+
+### Problem 7
+
+Revisit the `note_app` database. The dev team has decided the name for the users table should be renamed to `new_users`.
+
+```{sql connection=con_note_app}
+ALTER TABLE users RENAME TO new_users;
+```
+
+Check that it worked.
+```{r}
+dbListTables(con_note_app)
+```
+
+
+### Disconnect from databases
+
+Disconnect from _dvdrental_ database.
+```{r}
+dbDisconnect(con_dvdrental)
+```
+
+Drop all tables in _note_app_.
+```{sql connection=con_note_app}
+DROP TABLE IF EXISTS notes;
+```
+
+```{sql connection=con_note_app}
+ALTER TABLE new_users RENAME TO users;
+```
+
+```{sql connection=con_note_app}
+DROP TABLE IF EXISTS users;
+```
+
+Disconnect from _note_app_ database.
+```{r}
+dbDisconnect(con_note_app)
+```
+
+
+```
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+#  @##==---==##@##==---==##@    EXTRA  :  SPACE    @##==---==##@##==---==##@  #
+#@##==---==##@   @##==---==##@    #==-- --==#    @##==---==##@   @##==---==##@#
+##==---==##@   #   @##==---==##@    #==-==#    @##==---==##@   #   @##==---==##
+#=---==##@    #=#    @##==---==##@    #=#    @##==---==##@    #=#    @##==---=#
+#--==##@    #==-==#    @##==---==##@   #   @##==---==##@    #==-==#    @##==--#
+#==##@    #==-- --==#    @##==---==##@   @##==---==##@    #==-- --==#    @##==#
+###@    #==--  :  --==#    @##==---==##@##==---==##@    #==--  :  --==#    @###
+```
